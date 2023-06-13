@@ -1,0 +1,21 @@
+[package]
+name = "roundbench"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+hyper = { version = "0.14.26", features = ["full"] }
+hyper-tls = "0.5.0"
+tokio = { version = "1.28.2", features = ["full"] }
+tungstenite = "0.19.0"
+tokio-tungstenite = { version = "*", features = ["tls"] }
+hmac = "0.12.1"
+sha2 = "0.10.6"
+hex-literal = "0.4.1"
+serde_json = "1.0.96"
+serde = { version = "1.0.164", features = ["derive"] }
+ring = "0.16.20"
+hex = "0.4.3"
+futures-util = "0.3.28"

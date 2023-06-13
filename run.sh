@@ -8,6 +8,7 @@ case $1 in
     ;;
   "rust")
     echo "You selected Rust."
+    cd rust && cargo run
     # Add your command or function here for when 'rust' is the argument.
     ;;
   "zig")
