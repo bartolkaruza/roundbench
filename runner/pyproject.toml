@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "runner"
+version = "0.1.0"
+description = ""
+authors = ["bartolkaruza <bartol.k@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+python-dotenv = "^1.0.0"
+pandas = "^2.0.2"
+
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.0.2"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

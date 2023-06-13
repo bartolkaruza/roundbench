@@ -1,10 +1,11 @@
 const https = require("https");
 const crypto = require("crypto");
 const WebSocket = require("ws");
-const { PerformanceObserver, performance } = require("node:perf_hooks");
 
 const apiKey = process.env.BINANCE_KEY;
 const apiSecret = process.env.BINANCE_SECRET;
+
+const sample = {};
 
 const requestOptions = {
   hostname: "fapi.binance.com",
@@ -14,76 +15,69 @@ const requestOptions = {
   },
 };
 
-function signedRequest(method, path, keys, params, onJsonParsed) {
-  params.timestamp = Date.now();
-  let dataQueryString = keys.map((key) => key + "=" + params[key]).join("&");
+function signedRequest(
+  method,
+  path,
+  queryString,
+  onJsonParsed,
+  onResponse = null,
+  onHeader = null
+) {
   const signature = crypto
     .createHmac("sha256", apiSecret)
-    .update(dataQueryString)
+    .update(queryString)
     .digest("hex");
-  dataQueryString += "&signature=" + encodeURIComponent(signature);
-  requestOptions.path = path + dataQueryString;
+  requestOptions.path = `${path}${queryString}&signature=${encodeURIComponent(
+    signature
+  )}`;
   requestOptions.method = method;
   let respStr = "";
   const req = https.request(requestOptions, (res) => {
     res.on("data", (d) => {
       respStr += d;
     });
+    res.on("end", () => {
+      if (onResponse !== null) {
+        onResponse();
+      }
+      onJsonParsed(JSON.parse(respStr));
+    });
   });
-  req.on("close", () => {
-    onJsonParsed(JSON.parse(respStr));
-  });
+  if (onHeader !== null) {
+    req.on("connect", () => {});
+  }
 
   req.on("error", (e) => {
-    console.error(e);
+    // console.error(e);
   });
   req.end();
 }
 
-const placeOrderParams = {
-  symbol: "BTCUSDT",
-  side: "BUY",
-  type: "LIMIT",
-  timeInForce: "GTC",
-  newClientOrderId: "roundbench",
-  quantity: 0.001,
-  price: 20000,
-  recvWindow: 5000,
-};
-const placeOrderKeys = Object.keys(placeOrderParams);
-placeOrderKeys.push("timestamp");
-
-function binancePlaceOrder(onResponse) {
+function binancePlaceOrder(onHeader, onResponse, onJsonParsed) {
   signedRequest(
     "POST",
     "/fapi/v1/order?",
-    placeOrderKeys,
-    placeOrderParams,
-    onResponse
+    `symbol=BTCUSDT&side=BUY&type=LIMIT&timeInForce=GTC&newClientOrderId=roundbench_rust&quantity=0.001&price=20000&recvWindow=5000&timestamp=${Date.now()}`,
+    onJsonParsed,
+    onResponse,
+    onHeader
   );
 }
 
-const cancelOrderParams = {
-  symbol: "BTCUSDT",
-  origClientOrderId: "roundbench",
-  recvWindow: 50000,
-};
-const cancelOrderKeys = Object.keys(cancelOrderParams);
-cancelOrderKeys.push("timestamp");
-
-function binanceCancelOrder(onResponse) {
+function binanceCancelOrder(onHeader, onResponse, onJsonParsed) {
   signedRequest(
     "DELETE",
     "/fapi/v1/order?",
-    cancelOrderKeys,
-    cancelOrderParams,
-    onResponse
+    `symbol=BTCUSDT&origClientOrderId=roundbench_rust&recvWindow=50000&timestamp=${Date.now()}`,
+    onJsonParsed,
+    onResponse,
+    onHeader
   );
 }
 
 async function getListenKey() {
   return await new Promise((resolve) =>
-    signedRequest("POST", "/fapi/v1/listenKey?", [], {}, ({ listenKey }) =>
+    signedRequest("POST", "/fapi/v1/listenKey?", "", ({ listenKey }) =>
       resolve(listenKey)
     )
   );
@@ -97,18 +91,23 @@ async function binanceListenUserStream(onOrderPlaced, onOrderCancelled) {
 
     // Connection opened
     socket.on("open", () => {
-      console.log("Connection opened");
       resolve();
     });
 
     // Listen for messages
     socket.on("message", (message) => {
-      //   console.log("Message from server: ", );
+      if (!("ws_order_update" in sample)) {
+        sample["ws_place"] = process.hrtime();
+      } else {
+        sample["ws_cancel"] = process.hrtime();
+      }
       const payload = JSON.parse(message);
       if ("e" in payload && payload["e"] == "ORDER_TRADE_UPDATE") {
         if (payload["o"]["x"] == "CANCELED") {
+          sample["ws_place_parsed"] = process.hrtime();
           onOrderCancelled();
         } else if (payload["o"]["x"] == "NEW") {
+          sample["ws_cancel_parsed"] = process.hrtime();
           onOrderPlaced();
         }
       }
@@ -116,71 +115,52 @@ async function binanceListenUserStream(onOrderPlaced, onOrderCancelled) {
 
     // Connection closed
     socket.on("close", () => {
-      console.log("Connection closed");
+      //   console.log("Connection closed");
     });
 
     // Error handling
     socket.on("error", (error) => {
-      console.log("Error: ", error);
+      //   console.log("Error: ", error);
     });
   });
 }
 
 function sampleLoop() {
-  const obs = new PerformanceObserver((items) => {
-    console.log({ items });
-    console.log(items.getEntries()[0].duration);
-    // performance.clearMarks();
-  });
-  obs.observe({ type: "measure" });
-  //   performance.measure("Start to Now");
-  //   performance.mark("A");
-  //   doSomeLongRunningProcess(() => {
-  //     performance.measure("A to Now", "A");
-
-  //     performance.mark("B");
-  //     performance.measure("A to B", "A", "B");
-  //   });
+  sample["start"] = process.hrtime();
 
   binanceListenUserStream(
     () => {
-      console.log("on order");
-      performance.mark("B");
-      performance.measure("A to B", "A", "B");
-      binanceCancelOrder((c) => null);
+      binanceCancelOrder(
+        (c) => {
+          sample["cancel_response_header"] = process.hrtime();
+        },
+        (c) => {
+          sample["cancel_response"] = process.hrtime();
+        },
+        (c) => {
+          sample["cancel_json_parsed"] = process.hrtime();
+        }
+      );
     },
     () => {
-      performance.mark("C");
-      console.log("on cancel");
-      performance.measure("B to C", "B", "C");
-      performance.measure("end to end", "A", "C");
-      console.log("FIN");
+      sample["end"] = process.hrtime();
+      console.log(JSON.stringify(sample));
+
+      process.exit(0);
     }
   ).then(() => {
-    performance.mark("A");
-    binancePlaceOrder((o) => {
-      //   performance.measure("A response", "A");
-      console.log({ o });
-    });
+    binancePlaceOrder(
+      (c) => {
+        sample["place_response_header"] = process.hrtime();
+      },
+      (o) => {
+        sample["place_response"] = process.hrtime();
+      },
+      (o) => {
+        sample["place_json_parsed"] = process.hrtime();
+      }
+    );
   });
 }
 
 sampleLoop();
-// const sign = crypto.createSign("RSA-SHA256");
-// sign.update(dataQueryString);
-// sign.end();
-
-// const signature = sign.sign(
-//   { key: apiSecret, padding: crypto.constants.RSA_PKCS1_PSS_PADDING },
-//   "base64"
-// );
-
-// const orderRequestOptions = {
-//   hostname: "fapi.binance.com",
-//   port: 443,
-//   path: "/fapi/v1/order?" + dataQueryString,
-//   method: "POST",
-//   headers: {
-//     "X-MBX-APIKEY": apiKey,
-//   },
-// };

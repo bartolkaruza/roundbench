@@ -165,10 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tokio::spawn(async move {
         while let Some(msg) = canceled_rx.recv().await {
-            // println!("Received CANCELED: {:?}", msg);
-            
             println!("{:?} {}", Instant::now(), msg.event);
-            // TODO: Implement your own handling logic here.
         }
     });
 
