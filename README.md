@@ -1,8 +1,8 @@
 ![roundbench](roundbench.png)
 
-Benchmark of various programming languages for the specific usecase of high frequency trading in crypto. This benchmark deals with one specific venue, Binance, with a single market, BTCUSDT, selected as it is the highest volume single market in crypto as of writing.
+Benchmark of various programming languages for the specific usecase of high frequency trading in crypto, comparing their effectiveness for IO bound applications. This benchmark deals with one specific venue, Binance, with a single market, BTCUSDT, selected as it is the highest volume single market in crypto as of writing.
 
-This benchmark tries to separate venue related issues, due to congestion and other sources of noise, by sampling over a longer time period. The orders that are placed are well outside of the active trading range and are all cancelled before filling, so this benchmark doesn't include full trading lifecycle, but a sufficient portion of it for the purpose of comparing programming languages and runtimes.
+This benchmark tries to separate venue related issues, due to congestion and other sources of noise, by sampling over a longer time period. The orders that are placed are well outside of the active trading range and are all cancelled before filling, so this benchmark doesn't include a full trading lifecycle, but a sufficient portion of it for the purpose of comparing programming languages and runtimes.
 
 The following loop with respective sampled time represents a single sample;
 1. Place a limit order
@@ -16,11 +16,14 @@ For each step start and complete time are recorded, as well as the exchange prov
 
 The above protocol is implemented in a range of different programming languages, selected for either their widespread use in high frequency trading or their potential for competitive performance.
 
+STARTED
 - Javascript, NodeJS
+- Rust
+
+TODO
 - Python
 - Zig
-- Rust
 - C++
 - C
 
-The following results are 
+This is an early work in progress version. Contributions and collaboration is more than welcome.
