@@ -104,10 +104,10 @@ async function binanceListenUserStream(onOrderPlaced, onOrderCancelled) {
       const payload = JSON.parse(message);
       if ("e" in payload && payload["e"] == "ORDER_TRADE_UPDATE") {
         if (payload["o"]["x"] == "CANCELED") {
-          sample["ws_place_parsed"] = process.hrtime();
+          sample["ws_cancel_parsed"] = process.hrtime();
           onOrderCancelled();
         } else if (payload["o"]["x"] == "NEW") {
-          sample["ws_cancel_parsed"] = process.hrtime();
+          sample["ws_place_parsed"] = process.hrtime();
           onOrderPlaced();
         }
       }
